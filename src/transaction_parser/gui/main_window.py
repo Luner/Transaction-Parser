@@ -217,56 +217,65 @@ Note: This loads the Expenses, Income, and Payments sheets from the Excel file."
         # Bank/Card Format selector
         format_frame = ttk.LabelFrame(parent, text="Bank/Card Format", padding=10)
         format_frame.pack(fill=tk.X, padx=10, pady=5)
-        
+
         ttk.Label(format_frame, text="Select Format:").pack(side=tk.LEFT, padx=5)
-        self.bank_format_var = tk.StringVar(value="Custom")
+        self.bank_format_var = tk.StringVar(value="")
         bank_formats = get_all_bank_names()
         self.bank_format_combo = ttk.Combobox(format_frame, textvariable=self.bank_format_var,
                                               values=bank_formats, state="readonly", width=25)
+        self.bank_format_combo.set("Select a Format")  # Placeholder text
         self.bank_format_combo.pack(side=tk.LEFT, padx=5)
         self.bank_format_combo.bind("<<ComboboxSelected>>", self.on_bank_format_selected)
-        ttk.Label(format_frame, text="(Auto-fills column names)", 
+        ttk.Label(format_frame, text="(Auto-fills column names)",
                  font=("Arial", 8, "italic")).pack(side=tk.LEFT, padx=5)
-        
-        col_frame = ttk.LabelFrame(parent, text="Column Names", padding=10)
-        col_frame.pack(fill=tk.X, padx=10, pady=5)
-        
-        ttk.Label(col_frame, text="Date Column:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=2)
+
+        # Column configuration frame (hidden by default, shown only for Custom format)
+        self.col_frame = ttk.LabelFrame(parent, text="Column Names", padding=10)
+        # Don't pack it initially - will be shown when format is selected
+
+        ttk.Label(self.col_frame, text="Date Column:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=2)
         self.date_col_var = tk.StringVar(value="Date")
-        ttk.Entry(col_frame, textvariable=self.date_col_var, width=20).grid(row=0, column=1, padx=5, pady=2)
-        
-        ttk.Label(col_frame, text="Description Column:").grid(row=1, column=0, sticky=tk.W, padx=5, pady=2)
+        ttk.Entry(self.col_frame, textvariable=self.date_col_var, width=20).grid(row=0, column=1, padx=5, pady=2)
+
+        ttk.Label(self.col_frame, text="Description Column:").grid(row=1, column=0, sticky=tk.W, padx=5, pady=2)
         self.desc_col_var = tk.StringVar(value="Description")
-        ttk.Entry(col_frame, textvariable=self.desc_col_var, width=20).grid(row=1, column=1, padx=5, pady=2)
-        
-        ttk.Label(col_frame, text="Amount Column:").grid(row=2, column=0, sticky=tk.W, padx=5, pady=2)
+        ttk.Entry(self.col_frame, textvariable=self.desc_col_var, width=20).grid(row=1, column=1, padx=5, pady=2)
+
+        ttk.Label(self.col_frame, text="Amount Column:").grid(row=2, column=0, sticky=tk.W, padx=5, pady=2)
         self.amount_col_var = tk.StringVar(value="Amount")
-        ttk.Entry(col_frame, textvariable=self.amount_col_var, width=20).grid(row=2, column=1, padx=5, pady=2)
-        
-        ttk.Label(col_frame, text="OR use Debit/Credit columns:").grid(row=3, column=0, sticky=tk.W, padx=5, pady=2)
-        
-        ttk.Label(col_frame, text="Debit Column:").grid(row=4, column=0, sticky=tk.W, padx=5, pady=2)
+        ttk.Entry(self.col_frame, textvariable=self.amount_col_var, width=20).grid(row=2, column=1, padx=5, pady=2)
+
+        ttk.Label(self.col_frame, text="OR use Debit/Credit columns:").grid(row=3, column=0, sticky=tk.W, padx=5, pady=2)
+
+        ttk.Label(self.col_frame, text="Debit Column:").grid(row=4, column=0, sticky=tk.W, padx=5, pady=2)
         self.debit_col_var = tk.StringVar(value="")
-        ttk.Entry(col_frame, textvariable=self.debit_col_var, width=20).grid(row=4, column=1, padx=5, pady=2)
-        
-        ttk.Label(col_frame, text="Credit Column:").grid(row=5, column=0, sticky=tk.W, padx=5, pady=2)
+        ttk.Entry(self.col_frame, textvariable=self.debit_col_var, width=20).grid(row=4, column=1, padx=5, pady=2)
+
+        ttk.Label(self.col_frame, text="Credit Column:").grid(row=5, column=0, sticky=tk.W, padx=5, pady=2)
         self.credit_col_var = tk.StringVar(value="")
-        ttk.Entry(col_frame, textvariable=self.credit_col_var, width=20).grid(row=5, column=1, padx=5, pady=2)
-        
-        ttk.Label(col_frame, text="(Leave Debit/Credit empty to use Amount column)", 
+        ttk.Entry(self.col_frame, textvariable=self.credit_col_var, width=20).grid(row=5, column=1, padx=5, pady=2)
+
+        ttk.Label(self.col_frame, text="(Leave Debit/Credit empty to use Amount column)",
                  font=("Arial", 8, "italic")).grid(row=6, column=0, columnspan=2, sticky=tk.W, padx=5, pady=2)
-        
-        date_format_frame = ttk.Frame(parent)
-        date_format_frame.pack(fill=tk.X, padx=10, pady=5)
-        ttk.Label(date_format_frame, text="Date Format:").pack(side=tk.LEFT, padx=5)
+
+        # Date format frame (hidden by default, shown only for Custom format)
+        self.date_format_frame = ttk.Frame(parent)
+        # Don't pack it initially - will be shown when format is selected
+        ttk.Label(self.date_format_frame, text="Date Format:").pack(side=tk.LEFT, padx=5)
         self.date_format_var = tk.StringVar(value="%m/%d/%Y")
-        ttk.Combobox(date_format_frame, textvariable=self.date_format_var, 
+        ttk.Combobox(self.date_format_frame, textvariable=self.date_format_var,
                     values=["%m/%d/%Y", "%Y-%m-%d", "%d/%m/%Y"], width=15).pack(side=tk.LEFT, padx=5)
-        
+
+        # Invert amounts checkbox (hidden by default, shown only for Custom format)
+        self.invert_frame = ttk.Frame(parent)
+        # Don't pack it initially - will be shown when format is selected
         self.invert_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(parent, text="Inverted amounts (expenses are positive)", 
-                       variable=self.invert_var).pack(padx=10, pady=5)
-        
+        ttk.Checkbutton(self.invert_frame, text="Inverted amounts (expenses are positive)",
+                       variable=self.invert_var).pack(side=tk.LEFT)
+
+        # All configuration fields are hidden by default
+        # They will be shown when a format is selected in on_bank_format_selected()
+
         ttk.Button(parent, text="Add CSV File", command=self.add_csv_file,
                   style="Accent.TButton").pack(pady=10)
         
@@ -492,6 +501,11 @@ To apply to existing transactions, reload your transaction CSVs after loading Am
     def on_bank_format_selected(self, _event=None):
         """Handle bank format selection and auto-fill column names"""
         format_name = self.bank_format_var.get()
+
+        # Ignore if placeholder text is still shown
+        if format_name == "Select a Format" or not format_name:
+            return
+
         bank_format = get_bank_format_by_name(format_name)
 
         if bank_format:
@@ -513,6 +527,19 @@ To apply to existing transactions, reload your transaction CSVs after loading Am
 
             # Set invert amounts
             self.invert_var.set(bank_format.invert_amounts)
+
+            # Hide/show configuration fields based on format selection
+            if format_name == "Custom":
+                # Show all configuration fields for custom format
+                # Pack them in the correct order (after the format selector)
+                self.col_frame.pack(after=self.bank_format_combo.master, fill=tk.X, padx=10, pady=5)
+                self.date_format_frame.pack(after=self.col_frame, fill=tk.X, padx=10, pady=5)
+                self.invert_frame.pack(after=self.date_format_frame, fill=tk.X, padx=10, pady=5)
+            else:
+                # Hide configuration fields for pre-configured formats
+                self.col_frame.pack_forget()
+                self.date_format_frame.pack_forget()
+                self.invert_frame.pack_forget()
 
             self.log_message(f"Loaded format: {format_name}")
 

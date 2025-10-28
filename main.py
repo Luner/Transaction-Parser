@@ -9,7 +9,7 @@ Supports multiple bank formats including Apple Card, Capital One, Chase, and mor
 import sys
 import tkinter as tk
 from tkinter import ttk
-
+    
 # Add src directory to Python path
 sys.path.insert(0, 'src')
 
