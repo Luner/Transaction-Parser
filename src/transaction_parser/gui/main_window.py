@@ -99,17 +99,7 @@ Note: This loads the Expenses, Income, and Payments sheets from the Excel file."
     
     def create_manage_tab(self, parent):
         ttk.Label(parent, text="Manage Categories & Mappings", font=("Arial", 16, "bold")).pack(pady=10)
-        
-        # File operations
-        file_frame = ttk.LabelFrame(parent, text="Configuration File", padding=10)
-        file_frame.pack(fill=tk.X, padx=10, pady=5)
-        
-        self.config_file_var = tk.StringVar(value="category_mappings.json")
-        ttk.Entry(file_frame, textvariable=self.config_file_var, width=45).pack(side=tk.LEFT, padx=5)
-        ttk.Button(file_frame, text="Browse", command=self.browse_config_file).pack(side=tk.LEFT, padx=2)
-        ttk.Button(file_frame, text="Load", command=self.load_config).pack(side=tk.LEFT, padx=2)
-        ttk.Button(file_frame, text="Save", command=self.save_config, style="Accent.TButton").pack(side=tk.LEFT, padx=2)
-        
+
         # Notebook for categories and mappings
         manage_notebook = ttk.Notebook(parent)
         manage_notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
@@ -572,12 +562,6 @@ To apply to existing transactions, reload your transaction CSVs after loading Am
         if filename:
             self.import_file_var.set(filename)
     
-    def browse_config_file(self):
-        filename = filedialog.askopenfilename(title="Select Configuration File",
-                                             filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
-                                             initialfile="category_mappings.json")
-        if filename:
-            self.config_file_var.set(filename)
 
     def on_bank_format_selected(self, _event=None):
         """Handle bank format selection and auto-fill column names"""
@@ -1095,37 +1079,6 @@ To apply to existing transactions, reload your transaction CSVs after loading Am
             messagebox.showerror("Error", f"Failed to export: {str(e)}")
             self.log_message(f"ERROR: {str(e)}")
     
-    def load_config(self):
-        """Load configuration from file"""
-        config_file = self.config_file_var.get()
-        if not os.path.exists(config_file):
-            messagebox.showerror("Error", f"File not found: {config_file}")
-            return
-        
-        try:
-            self.parser.mapping_file = config_file
-            self.parser._load_config()
-            
-            self.refresh_category_list()
-            self.refresh_mapping_list()
-            
-            messagebox.showinfo("Success", f"Loaded configuration from {config_file}")
-            self.log_message(f"Loaded config from {config_file}")
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to load config: {str(e)}")
-    
-    def save_config(self):
-        """Save configuration to file"""
-        config_file = self.config_file_var.get()
-        
-        try:
-            self.parser.mapping_file = config_file
-            self.parser.save_config()
-            
-            messagebox.showinfo("Success", f"Saved configuration to {config_file}")
-            self.log_message(f"Saved config to {config_file}")
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to save config: {str(e)}")
     
     def refresh_category_list(self):
         """Refresh the category listbox"""
@@ -1172,6 +1125,7 @@ To apply to existing transactions, reload your transaction CSVs after loading Am
         
         self.new_category_var.set("")
         self.refresh_category_list()
+        self.parser.save_config()  # Auto-save changes
         self.log_message(f"Added {cat_type} category: {new_cat}")
     
     def delete_category(self):
@@ -1199,6 +1153,7 @@ To apply to existing transactions, reload your transaction CSVs after loading Am
             self.parser.PAYMENT_CATEGORIES.remove(cat_name)
         
         self.refresh_category_list()
+        self.parser.save_config()  # Auto-save changes
         self.log_message(f"Deleted {cat_type} category: {cat_name}")
     
     def refresh_mapping_list(self):
@@ -1240,6 +1195,7 @@ To apply to existing transactions, reload your transaction CSVs after loading Am
         
         del self.parser.mappings[desc]
         self.refresh_mapping_list()
+        self.parser.save_config()  # Auto-save changes
         self.log_message(f"Deleted mapping: {desc} → {cat}")
     
     def clear_all_mappings(self):
@@ -1253,6 +1209,7 @@ To apply to existing transactions, reload your transaction CSVs after loading Am
         count = len(self.parser.mappings)
         self.parser.mappings.clear()
         self.refresh_mapping_list()
+        self.parser.save_config()  # Auto-save changes
         self.log_message(f"Cleared {count} mappings")
         messagebox.showinfo("Cleared", f"Deleted {count} mappings")
 

@@ -10,24 +10,30 @@ import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment
 from openpyxl.utils import get_column_letter
 
+from ..utils.app_data import get_category_mappings_path
+
 
 class TransactionParser:
     """Parse and categorize bank/credit card transactions"""
 
     # Default categories - will be overridden by loaded config
     DEFAULT_EXPENSE_CATEGORIES = [
-        "Rent", "Bills & Utilities", "Groceries", "Restaurants", "Laundry",
-        "Gas", "Automotive", "Parking", "Personal", "Travel", "Shopping",
-        "Entertainment", "Video Games", "Books", "Clothes", "Furniture",
-        "Gifts", "Gym"
+        "Rent", "Bills & Utilities", "Groceries", "Restaurants",
+        "Travel", "Shopping", "Entertainment", "Clothes", "Furniture",
+        "Gifts", "Health", "Subscriptions", "Education", "Taxes", "Other"
     ]
 
-    DEFAULT_INCOME_CATEGORIES = ["Salary", "Bonus"]
+    DEFAULT_INCOME_CATEGORIES = ["Paycheck"]
     DEFAULT_PAYMENT_CATEGORIES = ["Card Payment", "Transfer", "Return"]
     IGNORE_CATEGORY = "Ignore"
 
-    def __init__(self, mapping_file="category_mappings.json", log_callback=None):
-        self.mapping_file = mapping_file
+    def __init__(self, mapping_file=None, log_callback=None):
+        # Use Application Support directory by default
+        if mapping_file is None:
+            self.mapping_file = str(get_category_mappings_path())
+        else:
+            self.mapping_file = mapping_file
+
         self.log_callback = log_callback
         self.matched_amazon_orders = set()
         self.amazon_orders = []
