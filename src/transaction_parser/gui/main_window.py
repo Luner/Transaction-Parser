@@ -8,7 +8,7 @@ from datetime import datetime
 import openpyxl
 
 from ..core import TransactionParser
-from ..config import get_all_bank_names, get_bank_format_by_name
+from ..config import get_all_bank_names, get_bank_format_by_name, detect_bank_format_from_headers
 
 
 class TransactionParserGUI:
@@ -471,6 +471,27 @@ To apply to existing transactions, reload your transaction CSVs after loading Am
                                              filetypes=[("CSV files", "*.csv"), ("All files", "*.*")])
         if filename:
             self.csv_file_var.set(filename)
+
+            # Auto-detect bank format from CSV headers
+            try:
+                with open(filename, 'r', encoding='utf-8-sig') as f:
+                    reader = csv.reader(f)
+                    headers = next(reader)  # Read first row (headers)
+
+                    detected_format = detect_bank_format_from_headers(headers)
+
+                    if detected_format:
+                        # Auto-select the detected format
+                        self.bank_format_var.set(detected_format.name)
+                        # Trigger the selection handler to auto-fill fields
+                        self.on_bank_format_selected()
+                        self.log_message(f"Auto-detected format: {detected_format.name}")
+                    else:
+                        # No match found, suggest Custom
+                        if self.bank_format_var.get() in ["", "Select a Format"]:
+                            self.log_message("Could not auto-detect bank format. Please select a format manually.")
+            except Exception as e:
+                self.log_message(f"Warning: Could not read CSV headers: {e}")
     
     def browse_amazon_file(self):
         filename = filedialog.askopenfilename(title="Select Amazon Order History CSV",

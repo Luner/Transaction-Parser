@@ -106,3 +106,41 @@ def get_bank_format_by_name(name: str) -> Optional[BankFormat]:
 def add_custom_format(key: str, format_config: BankFormat):
     """Add a custom bank format at runtime"""
     BANK_FORMATS[key] = format_config
+
+
+def detect_bank_format_from_headers(headers: list) -> Optional[BankFormat]:
+    """
+    Detect bank format by matching CSV headers against known formats.
+
+    Args:
+        headers: List of column headers from CSV file
+
+    Returns:
+        BankFormat object if a match is found, None otherwise
+    """
+    if not headers:
+        return None
+
+    # Normalize headers for comparison (strip whitespace, case-insensitive)
+    normalized_headers = [h.strip() for h in headers]
+
+    # Try to match against each bank format
+    for fmt in BANK_FORMATS.values():
+        # Skip the Custom format - we only want to auto-detect specific banks
+        if fmt.name == "Custom":
+            continue
+
+        # Check if all required columns exist in the CSV headers
+        required_cols = [fmt.date_col, fmt.desc_col]
+
+        # Add amount-related columns based on format type
+        if fmt.amount_col:
+            required_cols.append(fmt.amount_col)
+        elif fmt.debit_col and fmt.credit_col:
+            required_cols.extend([fmt.debit_col, fmt.credit_col])
+
+        # Check if all required columns are present in headers
+        if all(col in normalized_headers for col in required_cols):
+            return fmt
+
+    return None

@@ -6,7 +6,8 @@ from .bank_formats import (
     get_bank_format,
     get_all_bank_names,
     get_bank_format_by_name,
-    add_custom_format
+    add_custom_format,
+    detect_bank_format_from_headers
 )
 
 __all__ = [
@@ -15,5 +16,6 @@ __all__ = [
     'get_bank_format',
     'get_all_bank_names',
     'get_bank_format_by_name',
-    'add_custom_format'
+    'add_custom_format',
+    'detect_bank_format_from_headers'
 ]
