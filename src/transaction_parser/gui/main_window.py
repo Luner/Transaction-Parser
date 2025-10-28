@@ -221,20 +221,29 @@ Note: This loads the Expenses, Income, and Payments sheets from the Excel file."
         scrollbar.pack(side="right", fill="y")
 
         # Now create all content in scrollable_frame instead of parent
-        ttk.Label(scrollable_frame, text="Add Transaction CSV Files", font=("Arial", 16, "bold")).pack(pady=10)
+        ttk.Label(scrollable_frame, text="Add Transactions", font=("Arial", 16, "bold")).pack(pady=10)
 
-        file_frame = ttk.LabelFrame(scrollable_frame, text="CSV File", padding=10)
+        file_frame = ttk.LabelFrame(scrollable_frame, text="Transaction File", padding=10)
         file_frame.pack(fill=tk.X, padx=10, pady=5)
-        
+
+        # Add subtitle explaining CSV format
+        ttk.Label(file_frame, text="CSV export from your bank or credit card",
+                 font=("Arial", 9, "italic"), foreground="gray").pack(anchor=tk.W, padx=5, pady=(0,5))
+
+        file_selector = ttk.Frame(file_frame)
+        file_selector.pack(fill=tk.X, padx=5)
+
         self.csv_file_var = tk.StringVar()
-        ttk.Entry(file_frame, textvariable=self.csv_file_var, width=60).pack(side=tk.LEFT, padx=5)
-        ttk.Button(file_frame, text="Browse", command=self.browse_csv_file).pack(side=tk.LEFT)
+        ttk.Entry(file_selector, textvariable=self.csv_file_var, width=60).pack(side=tk.LEFT, padx=5)
+        ttk.Button(file_selector, text="Browse", command=self.browse_csv_file).pack(side=tk.LEFT)
         
         source_frame = ttk.Frame(scrollable_frame)
         source_frame.pack(fill=tk.X, padx=10, pady=5)
-        ttk.Label(source_frame, text="Source ID:").pack(side=tk.LEFT, padx=5)
+        ttk.Label(source_frame, text="Description:").pack(side=tk.LEFT, padx=5)
         self.source_var = tk.StringVar(value="")
-        ttk.Entry(source_frame, textvariable=self.source_var, width=30).pack(side=tk.LEFT, padx=5)
+        ttk.Entry(source_frame, textvariable=self.source_var, width=40).pack(side=tk.LEFT, padx=5)
+        ttk.Label(source_frame, text="(e.g., Apple Card Q4 2024)", font=("Arial", 9, "italic"),
+                 foreground="gray").pack(side=tk.LEFT, padx=5)
 
         # Format detection status (shown after CSV is selected)
         self.format_status_frame = ttk.LabelFrame(scrollable_frame, text="Detected Format", padding=10)
