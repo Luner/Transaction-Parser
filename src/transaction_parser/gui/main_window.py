@@ -199,38 +199,71 @@ Note: This loads the Expenses, Income, and Payments sheets from the Excel file."
         self.refresh_mapping_list()
     
     def create_csv_tab(self, parent):
-        ttk.Label(parent, text="Add Transaction CSV Files", font=("Arial", 16, "bold")).pack(pady=10)
-        
-        file_frame = ttk.LabelFrame(parent, text="CSV File", padding=10)
+        # Create a canvas with scrollbar for the CSV tab content
+        canvas = tk.Canvas(parent, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(parent, orient="vertical", command=canvas.yview)
+        scrollable_frame = ttk.Frame(canvas)
+
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda _e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+
+        canvas_window = canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        # Make canvas and window expand to fill width
+        def configure_canvas_width(event):
+            canvas.itemconfig(canvas_window, width=event.width)
+        canvas.bind('<Configure>', configure_canvas_width)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        # Now create all content in scrollable_frame instead of parent
+        ttk.Label(scrollable_frame, text="Add Transaction CSV Files", font=("Arial", 16, "bold")).pack(pady=10)
+
+        file_frame = ttk.LabelFrame(scrollable_frame, text="CSV File", padding=10)
         file_frame.pack(fill=tk.X, padx=10, pady=5)
         
         self.csv_file_var = tk.StringVar()
         ttk.Entry(file_frame, textvariable=self.csv_file_var, width=60).pack(side=tk.LEFT, padx=5)
         ttk.Button(file_frame, text="Browse", command=self.browse_csv_file).pack(side=tk.LEFT)
         
-        source_frame = ttk.Frame(parent)
+        source_frame = ttk.Frame(scrollable_frame)
         source_frame.pack(fill=tk.X, padx=10, pady=5)
         ttk.Label(source_frame, text="Source ID:").pack(side=tk.LEFT, padx=5)
         self.source_var = tk.StringVar(value="")
         ttk.Entry(source_frame, textvariable=self.source_var, width=30).pack(side=tk.LEFT, padx=5)
-        
-        # Bank/Card Format selector
-        format_frame = ttk.LabelFrame(parent, text="Bank/Card Format", padding=10)
-        format_frame.pack(fill=tk.X, padx=10, pady=5)
 
-        ttk.Label(format_frame, text="Select Format:").pack(side=tk.LEFT, padx=5)
+        # Format detection status (shown after CSV is selected)
+        self.format_status_frame = ttk.LabelFrame(scrollable_frame, text="Detected Format", padding=10)
+        # Hidden initially - shown after CSV selection
+        self.format_status_var = tk.StringVar(value="")
+        self.format_status_label = ttk.Label(self.format_status_frame, textvariable=self.format_status_var,
+                                             font=("Arial", 12, "bold"), foreground="green")
+        self.format_status_label.pack(side=tk.LEFT, padx=5)
+
+        # Bank/Card Format selector (only shown if auto-detection fails)
+        self.format_selector_frame = ttk.LabelFrame(scrollable_frame, text="Manual Format Selection", padding=10)
+        # Hidden initially - only shown if detection fails
+
+        ttk.Label(self.format_selector_frame, text="Could not auto-detect format. Please select manually:",
+                 wraplength=600).pack(padx=5, pady=5)
+
+        selector_inner = ttk.Frame(self.format_selector_frame)
+        selector_inner.pack(fill=tk.X, padx=5, pady=5)
+
+        ttk.Label(selector_inner, text="Select Format:").pack(side=tk.LEFT, padx=5)
         self.bank_format_var = tk.StringVar(value="")
         bank_formats = get_all_bank_names()
-        self.bank_format_combo = ttk.Combobox(format_frame, textvariable=self.bank_format_var,
+        self.bank_format_combo = ttk.Combobox(selector_inner, textvariable=self.bank_format_var,
                                               values=bank_formats, state="readonly", width=25)
-        self.bank_format_combo.set("Select a Format")  # Placeholder text
         self.bank_format_combo.pack(side=tk.LEFT, padx=5)
         self.bank_format_combo.bind("<<ComboboxSelected>>", self.on_bank_format_selected)
-        ttk.Label(format_frame, text="(Auto-fills column names)",
-                 font=("Arial", 8, "italic")).pack(side=tk.LEFT, padx=5)
 
         # Column configuration frame (hidden by default, shown only for Custom format)
-        self.col_frame = ttk.LabelFrame(parent, text="Column Names", padding=10)
+        self.col_frame = ttk.LabelFrame(scrollable_frame, text="Column Names", padding=10)
         # Don't pack it initially - will be shown when format is selected
 
         ttk.Label(self.col_frame, text="Date Column:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=2)
@@ -259,7 +292,7 @@ Note: This loads the Expenses, Income, and Payments sheets from the Excel file."
                  font=("Arial", 8, "italic")).grid(row=6, column=0, columnspan=2, sticky=tk.W, padx=5, pady=2)
 
         # Date format frame (hidden by default, shown only for Custom format)
-        self.date_format_frame = ttk.Frame(parent)
+        self.date_format_frame = ttk.Frame(scrollable_frame)
         # Don't pack it initially - will be shown when format is selected
         ttk.Label(self.date_format_frame, text="Date Format:").pack(side=tk.LEFT, padx=5)
         self.date_format_var = tk.StringVar(value="%m/%d/%Y")
@@ -267,7 +300,7 @@ Note: This loads the Expenses, Income, and Payments sheets from the Excel file."
                     values=["%m/%d/%Y", "%Y-%m-%d", "%d/%m/%Y"], width=15).pack(side=tk.LEFT, padx=5)
 
         # Invert amounts checkbox (hidden by default, shown only for Custom format)
-        self.invert_frame = ttk.Frame(parent)
+        self.invert_frame = ttk.Frame(scrollable_frame)
         # Don't pack it initially - will be shown when format is selected
         self.invert_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(self.invert_frame, text="Inverted amounts (expenses are positive)",
@@ -276,17 +309,12 @@ Note: This loads the Expenses, Income, and Payments sheets from the Excel file."
         # All configuration fields are hidden by default
         # They will be shown when a format is selected in on_bank_format_selected()
 
-        ttk.Button(parent, text="Add CSV File", command=self.add_csv_file,
-                  style="Accent.TButton").pack(pady=10)
-        
-        list_frame = ttk.LabelFrame(parent, text="Added Files", padding=10)
-        list_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
-        
-        self.files_listbox = tk.Listbox(list_frame, height=8)
-        self.files_listbox.pack(fill=tk.BOTH, expand=True)
-        
-        self.csv_status = ttk.Label(parent, text="", foreground="blue")
-        self.csv_status.pack(pady=5)
+        ttk.Button(scrollable_frame, text="Add CSV File", command=self.add_csv_file,
+                  style="Accent.TButton").pack(pady=20)
+
+        # Status label at the bottom
+        self.csv_status = ttk.Label(scrollable_frame, text="", foreground="blue")
+        self.csv_status.pack(pady=10)
     
     def create_amazon_tab(self, parent):
         ttk.Label(parent, text="Amazon Order History", font=("Arial", 16, "bold")).pack(pady=10)
@@ -481,16 +509,37 @@ To apply to existing transactions, reload your transaction CSVs after loading Am
                     detected_format = detect_bank_format_from_headers(headers)
 
                     if detected_format:
-                        # Auto-select the detected format
+                        # Format detected successfully!
                         self.bank_format_var.set(detected_format.name)
-                        # Trigger the selection handler to auto-fill fields
+
+                        # Show detected format status
+                        self.format_status_var.set(f"✓ {detected_format.name}")
+                        self.format_status_label.config(foreground="green")
+                        self.format_status_frame.pack(fill=tk.X, padx=10, pady=5)
+
+                        # Hide manual selector
+                        self.format_selector_frame.pack_forget()
+
+                        # Auto-fill fields (but keep them hidden for pre-configured formats)
                         self.on_bank_format_selected()
-                        self.log_message(f"Auto-detected format: {detected_format.name}")
+
+                        self.log_message(f"✓ Auto-detected format: {detected_format.name}")
                     else:
-                        # No match found, suggest Custom
-                        if self.bank_format_var.get() in ["", "Select a Format"]:
-                            self.log_message("Could not auto-detect bank format. Please select a format manually.")
+                        # Detection failed - show manual selector
+                        self.format_status_var.set("✗ Could not auto-detect format")
+                        self.format_status_label.config(foreground="orange")
+                        self.format_status_frame.pack(fill=tk.X, padx=10, pady=5)
+
+                        # Show manual format selector
+                        self.format_selector_frame.pack(fill=tk.X, padx=10, pady=5)
+
+                        self.log_message("Could not auto-detect bank format. Please select manually from the dropdown below.")
             except Exception as e:
+                # Error reading CSV
+                self.format_status_var.set(f"✗ Error reading CSV: {str(e)[:50]}")
+                self.format_status_label.config(foreground="red")
+                self.format_status_frame.pack(fill=tk.X, padx=10, pady=5)
+
                 self.log_message(f"Warning: Could not read CSV headers: {e}")
     
     def browse_amazon_file(self):
@@ -523,8 +572,8 @@ To apply to existing transactions, reload your transaction CSVs after loading Am
         """Handle bank format selection and auto-fill column names"""
         format_name = self.bank_format_var.get()
 
-        # Ignore if placeholder text is still shown
-        if format_name == "Select a Format" or not format_name:
+        # Ignore if no format is selected
+        if not format_name:
             return
 
         bank_format = get_bank_format_by_name(format_name)
@@ -721,7 +770,8 @@ To apply to existing transactions, reload your transaction CSVs after loading Am
             
             self.all_transactions.extend(transactions)
             self.csv_files.append(f"{source}: {len(transactions)} transactions")
-            self.files_listbox.insert(tk.END, self.csv_files[-1])
+            # Update status to show what was added
+            self.csv_status.config(text=f"✓ Added: {source} ({len(transactions)} transactions)", foreground="green")
             
             uncategorized_descriptions = {}
             for txn in transactions:
