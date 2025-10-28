@@ -14,7 +14,8 @@ class BankFormat:
     def __init__(self, name: str, date_col: str, desc_col: str,
                  amount_col: str = None, debit_col: str = None,
                  credit_col: str = None, date_format: str = "%m/%d/%Y",
-                 invert_amounts: bool = False, description: str = ""):
+                 invert_amounts: bool = False, description: str = "",
+                 has_header: bool = True):
         self.name = name
         self.date_col = date_col
         self.desc_col = desc_col
@@ -24,6 +25,7 @@ class BankFormat:
         self.date_format = date_format
         self.invert_amounts = invert_amounts
         self.description = description
+        self.has_header = has_header  # False for headerless CSVs like Wells Fargo Checking
 
     def to_dict(self) -> Dict:
         """Convert to dictionary representation"""
@@ -73,6 +75,17 @@ BANK_FORMATS = {
         description='Chase Bank CSV export format'
     ),
 
+    'wells_fargo_bank': BankFormat(
+        name='Wells Fargo Bank',
+        date_col='0',  # Column index 0 for headerless CSV
+        desc_col='4',  # Column index 4 for headerless CSV
+        amount_col='1',  # Column index 1 for headerless CSV
+        date_format='%m/%d/%Y',
+        invert_amounts=False,
+        has_header=False,
+        description='Wells Fargo Checking - headerless CSV format'
+    ),
+
     'custom': BankFormat(
         name='Custom',
         date_col='Date',
@@ -111,9 +124,10 @@ def add_custom_format(key: str, format_config: BankFormat):
 def detect_bank_format_from_headers(headers: list) -> Optional[BankFormat]:
     """
     Detect bank format by matching CSV headers against known formats.
+    Also handles headerless CSVs by validating data patterns.
 
     Args:
-        headers: List of column headers from CSV file
+        headers: List of column headers (or first data row for headerless CSV)
 
     Returns:
         BankFormat object if a match is found, None otherwise
@@ -121,13 +135,13 @@ def detect_bank_format_from_headers(headers: list) -> Optional[BankFormat]:
     if not headers:
         return None
 
-    # Normalize headers for comparison (strip whitespace, case-insensitive)
+    # Normalize headers for comparison (strip whitespace)
     normalized_headers = [h.strip() for h in headers]
 
-    # Try to match against each bank format
+    # First, try header-based matching
     for fmt in BANK_FORMATS.values():
-        # Skip the Custom format - we only want to auto-detect specific banks
-        if fmt.name == "Custom":
+        # Skip Custom format and headerless formats in this pass
+        if fmt.name == "Custom" or not fmt.has_header:
             continue
 
         # Check if all required columns exist in the CSV headers
@@ -142,5 +156,27 @@ def detect_bank_format_from_headers(headers: list) -> Optional[BankFormat]:
         # Check if all required columns are present in headers
         if all(col in normalized_headers for col in required_cols):
             return fmt
+
+    # If no header match, try headerless format detection
+    # Check if this looks like Wells Fargo (date, amount, *, *, description pattern)
+    if len(normalized_headers) >= 5:
+        try:
+            from datetime import datetime
+            # CSV reader already removes quotes, so we don't need strip('"')
+            # Try to parse first column as date
+            date_str = normalized_headers[0]
+            datetime.strptime(date_str, '%m/%d/%Y')
+
+            # Try to parse second column as amount (negative or positive number)
+            amount_str = normalized_headers[1].replace(',', '')
+            float(amount_str)
+
+            # If we got here, it looks like Wells Fargo Checking format
+            wells_fargo = BANK_FORMATS.get('wells_fargo_bank')
+            if wells_fargo:
+                return wells_fargo
+        except (ValueError, IndexError):
+            # Silent fail - just return None if detection doesn't work
+            pass
 
     return None

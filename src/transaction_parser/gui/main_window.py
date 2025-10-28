@@ -22,7 +22,8 @@ class TransactionParserGUI:
         self.csv_files = []
         self.pending_categorizations = []
         self.current_categorization_index = 0
-        
+        self.current_has_header = True  # Track whether current format has headers
+
         self.create_widgets()
     
     def create_widgets(self):
@@ -318,7 +319,7 @@ Note: This loads the Expenses, Income, and Payments sheets from the Excel file."
         # All configuration fields are hidden by default
         # They will be shown when a format is selected in on_bank_format_selected()
 
-        ttk.Button(scrollable_frame, text="Add CSV File", command=self.add_csv_file,
+        ttk.Button(scrollable_frame, text="Upload Transactions", command=self.add_csv_file,
                   style="Accent.TButton").pack(pady=20)
 
         # Status label at the bottom
@@ -516,10 +517,11 @@ To apply to existing transactions, reload your transaction CSVs after loading Am
                     headers = next(reader)  # Read first row (headers)
 
                     detected_format = detect_bank_format_from_headers(headers)
-
+                    print("detected format:", detected_format)
                     if detected_format:
                         # Format detected successfully!
                         self.bank_format_var.set(detected_format.name)
+                        self.current_has_header = detected_format.has_header
 
                         # Show detected format status
                         self.format_status_var.set(f"✓ {detected_format.name}")
@@ -606,6 +608,9 @@ To apply to existing transactions, reload your transaction CSVs after loading Am
 
             # Set invert amounts
             self.invert_var.set(bank_format.invert_amounts)
+
+            # Set has_header flag
+            self.current_has_header = bank_format.has_header
 
             # Hide/show configuration fields based on format selection
             if format_name == "Custom":
@@ -774,7 +779,8 @@ To apply to existing transactions, reload your transaction CSVs after loading Am
                 self.date_format_var.get(),
                 self.invert_var.get(),
                 debit_col,
-                credit_col
+                credit_col,
+                self.current_has_header
             )
             
             self.all_transactions.extend(transactions)

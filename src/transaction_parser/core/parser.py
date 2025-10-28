@@ -5,7 +5,7 @@ import json
 import os
 from datetime import datetime
 from collections import defaultdict
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment
 from openpyxl.utils import get_column_letter
@@ -127,69 +127,45 @@ class TransactionParser:
 
     def parse_csv_with_callback(self, file_path: str, date_col: str, desc_col: str,
                   amount_col: str, source: str, date_format: str = "%m/%d/%Y",
-                  invert_amounts: bool = False, debit_col: str = None, credit_col: str = None) -> List[Dict]:
+                  invert_amounts: bool = False, debit_col: str = None, credit_col: str = None,
+                  has_header: bool = True) -> List[Dict]:
         transactions = []
 
         with open(file_path, 'r', encoding='utf-8-sig') as f:
-            reader = csv.DictReader(f)
+            if has_header:
+                # Header-based CSV - use DictReader
+                reader = csv.DictReader(f)
+                for row in reader:
+                    try:
+                        date_str = row[date_col].strip()
+                        description = row[desc_col].strip()
+                        transaction = self._process_row_dict(row, date_str, description, amount_col,
+                                                             debit_col, credit_col, date_format,
+                                                             invert_amounts, source)
+                        if transaction:
+                            transactions.append(transaction)
+                    except (KeyError, ValueError) as e:
+                        self.log(f"Warning: Could not parse row: {e}")
+                        continue
+            else:
+                # Headerless CSV - use regular reader with column indices
+                reader = csv.reader(f)
+                for row in reader:
+                    try:
+                        # Convert column indices from strings to integers
+                        date_idx = int(date_col)
+                        desc_idx = int(desc_col)
+                        amount_idx = int(amount_col) if amount_col else None
 
-            for row in reader:
-                try:
-                    date_str = row[date_col].strip()
-                    description = row[desc_col].strip()
-
-                    # Handle Debit/Credit columns (e.g., Capital One format)
-                    if debit_col and credit_col:
-                        debit_str = row.get(debit_col, '').strip()
-                        credit_str = row.get(credit_col, '').strip()
-
-                        # Remove currency symbols and commas
-                        debit_str = debit_str.replace('$', '').replace(',', '')
-                        credit_str = credit_str.replace('$', '').replace(',', '')
-
-                        # Parse debit (expenses) and credit (payments/income)
-                        if debit_str:
-                            amount = -abs(float(debit_str))  # Debits are negative (expenses)
-                        elif credit_str:
-                            amount = abs(float(credit_str))   # Credits are positive (payments/income)
-                        else:
-                            continue  # Skip rows with no amount
-                    else:
-                        # Handle single Amount column
-                        amount_str = row[amount_col].strip()
-                        amount_str = amount_str.replace('$', '').replace(',', '')
-
-                        if amount_str.startswith('(') and amount_str.endswith(')'):
-                            amount_str = '-' + amount_str[1:-1]
-
-                        amount = float(amount_str)
-
-                        if invert_amounts:
-                            amount = -amount
-
-                    date = datetime.strptime(date_str, date_format)
-
-                    is_amazon = self._is_amazon_transaction(description)
-                    matched_order_id = None
-
-                    if is_amazon:
-                        amazon_items, matched_order_id = self._find_amazon_order(date, amount)
-                        if amazon_items:
-                            description = amazon_items
-                            self.log(f"  Matched Amazon order: {description[:50]}...")
-
-                    transactions.append({
-                        'date': date,
-                        'description': description,
-                        'amount': amount,
-                        'category': None,
-                        'source': source,
-                        'amazon_order_id': matched_order_id
-                    })
-
-                except (KeyError, ValueError) as e:
-                    self.log(f"Warning: Could not parse row: {e}")
-                    continue
+                        date_str = row[date_idx].strip()
+                        description = row[desc_idx].strip()
+                        transaction = self._process_row_list(row, date_str, description, amount_idx,
+                                                             date_format, invert_amounts, source)
+                        if transaction:
+                            transactions.append(transaction)
+                    except (IndexError, ValueError) as e:
+                        self.log(f"Warning: Could not parse row: {e}")
+                        continue
 
         self.log("Categorizing transactions...")
         for txn in transactions:
@@ -201,6 +177,97 @@ class TransactionParser:
                     txn['category'] = "Uncategorized"
 
         return transactions
+
+    def _process_row_dict(self, row: dict, date_str: str, description: str, amount_col: str,
+                         debit_col: str, credit_col: str, date_format: str,
+                         invert_amounts: bool, source: str) -> Optional[dict]:
+        """Process a row from a header-based CSV"""
+        # Handle Debit/Credit columns (e.g., Capital One format)
+        if debit_col and credit_col:
+            debit_str = row.get(debit_col, '').strip()
+            credit_str = row.get(credit_col, '').strip()
+
+            # Remove currency symbols and commas
+            debit_str = debit_str.replace('$', '').replace(',', '')
+            credit_str = credit_str.replace('$', '').replace(',', '')
+
+            # Parse debit (expenses) and credit (payments/income)
+            if debit_str:
+                amount = -abs(float(debit_str))  # Debits are negative (expenses)
+            elif credit_str:
+                amount = abs(float(credit_str))   # Credits are positive (payments/income)
+            else:
+                return None  # Skip rows with no amount
+        else:
+            # Handle single Amount column
+            amount_str = row[amount_col].strip()
+            amount_str = amount_str.replace('$', '').replace(',', '').replace('"', '')
+
+            if amount_str.startswith('(') and amount_str.endswith(')'):
+                amount_str = '-' + amount_str[1:-1]
+
+            amount = float(amount_str)
+
+            if invert_amounts:
+                amount = -amount
+
+        date = datetime.strptime(date_str, date_format)
+
+        is_amazon = self._is_amazon_transaction(description)
+        matched_order_id = None
+
+        if is_amazon:
+            amazon_items, matched_order_id = self._find_amazon_order(date, amount)
+            if amazon_items:
+                description = amazon_items
+                self.log(f"  Matched Amazon order: {description[:50]}...")
+
+        return {
+            'date': date,
+            'description': description,
+            'amount': amount,
+            'category': None,
+            'source': source,
+            'amazon_order_id': matched_order_id
+        }
+
+    def _process_row_list(self, row: list, date_str: str, description: str, amount_idx: int,
+                          date_format: str, invert_amounts: bool, source: str) -> Optional[dict]:
+        """Process a row from a headerless CSV"""
+        # Remove quotes and clean up data
+        amount_str = row[amount_idx].strip().replace('$', '').replace(',', '').replace('"', '')
+
+        if amount_str.startswith('(') and amount_str.endswith(')'):
+            amount_str = '-' + amount_str[1:-1]
+
+        amount = float(amount_str)
+
+        if invert_amounts:
+            amount = -amount
+
+        # Clean up description - remove quotes
+        description = description.replace('"', '')
+        date_str = date_str.replace('"', '')
+
+        date = datetime.strptime(date_str, date_format)
+
+        is_amazon = self._is_amazon_transaction(description)
+        matched_order_id = None
+
+        if is_amazon:
+            amazon_items, matched_order_id = self._find_amazon_order(date, amount)
+            if amazon_items:
+                description = amazon_items
+                self.log(f"  Matched Amazon order: {description[:50]}...")
+
+        return {
+            'date': date,
+            'description': description,
+            'amount': amount,
+            'category': None,
+            'source': source,
+            'amazon_order_id': matched_order_id
+        }
 
     def generate_summary(self, transactions: List[Dict]) -> Tuple[List, List, List, Dict, Dict]:
         expenses = []
